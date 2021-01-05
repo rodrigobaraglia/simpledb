@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <string.h>
+#include <stdint.h>
 
 #ifdef _WIN32
 
@@ -73,9 +74,20 @@ typedef enum
     STATEMENT_SELECT
 } StatementType;
 
+#define COLUMN_USERNAME_SIZE 32
+#define COLUMN_EMAIL_SIZE 255
+
+typedef struct
+{
+    uint32_t id;
+    char username[COLUMN_USERNAME_SIZE];
+    char email[COLUMN_EMAIL_SIZE];
+} Row;
+
 typedef struct
 {
     StatementType type;
+    Row row_to_insert;
 } Statement;
 
 typedef struct
@@ -93,6 +105,30 @@ InputBuffer *new_input_buffer()
     ib->buffer_length = 0;
     ib->buffer_length = 0;
     return ib;
+}
+
+#define size_of_attribute(Struct, Attribute) sizeof(((Struct *)0)->Attribute)
+
+const uint32_t ID_SIZE = size_of_attribute(Row, id);
+const uint32_t USERNAME_SIZE = size_of_attribute(Row, username);
+const uint32_t EMAIL_SIZE = size_of_attribute(Row, email);
+const uint32_t ID_OFFSET = 0;
+const uint32_t USERNAME_OFFSET = ID_OFFSET + ID_SIZE;
+const uint32_t EMAIL_OFFSET = USERNAME_OFFSET + USERNAME_SIZE;
+const uint32_t ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
+
+void serialize_row(Row *source, void *destination)
+{
+    memcpy(destination + ID_OFFSET, &(source->id), ID_SIZE);
+    memcpy(destination + USERNAME_OFFSET, &(source->username), USERNAME_SIZE);
+    memcpy(destination + EMAIL_OFFSET, &(source->email), EMAIL_SIZE);
+}
+
+void deserialize_row(void *source, Row *destination)
+{
+    memcpy(&(destination->id), source + ID_OFFSET, ID_SIZE);
+    memcpy(&(destination->username), source + USERNAME_OFFSET, USERNAME_SIZE);
+    memcpy(&(destination->email), source + EMAIL_OFFSET, EMAIL_SIZE);
 }
 
 void print_prompt()
@@ -128,6 +164,20 @@ PrepareResult prepare_statement(InputBuffer *ib, Statement *stmt)
     if (strncasecmp(ib->buffer, "insert", 6) == 0)
     {
         stmt->type = STATEMENT_INSERT;
+
+        ////***To add later***
+        // int args_assigned = sscanf(
+        //     ib->buffer,
+        //     "insert %d %s %s",
+        //     &(stmt->row_to_insert.id),
+        //     stmt->row_to_insert.username,
+        //     stmt->row_to_insert.email);
+
+        // if (args_assigned < 3)
+        // {
+        //     return PARSE_SYNTAX_ERROR;
+        // }
+
         return PREPARE_SUCCES;
     }
     if (strcasecmp(ib->buffer, "select") == 0)
