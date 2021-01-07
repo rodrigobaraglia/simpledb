@@ -131,6 +131,36 @@ void deserialize_row(void *source, Row *destination)
     memcpy(&(destination->email), source + EMAIL_OFFSET, EMAIL_SIZE);
 }
 
+const uint32_t PAGE_SIZE = 4096;
+#define TABLE_MAX_PAGES 100
+const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
+const uint32_t MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+
+typedef struct
+{
+    uint32_t num_rows;
+    void *pages[TABLE_MAX_PAGES];
+} Table;
+
+//Determine where to write/read a particular row:
+//(Pointer arithmetic)
+void *row_slot(Table *table, uint32_t row_num)
+{
+    uint32_t page_num = row_num / ROWS_PER_PAGE;
+    void *page = table->pages[page_num];
+    if (page == NULL)
+    {
+        //Allocate
+        page = table->pages[page_num] = malloc(PAGE_SIZE);
+        int a = 1;
+    }
+
+    uint32_t row_offset = row_num % ROWS_PER_PAGE;
+    uint32_t byte_offset = row_offset * ROW_SIZE;
+
+    return page + byte_offset;
+}
+
 void print_prompt()
 {
     printf("db > ");
@@ -166,17 +196,17 @@ PrepareResult prepare_statement(InputBuffer *ib, Statement *stmt)
         stmt->type = STATEMENT_INSERT;
 
         ////***To add later***
-        // int args_assigned = sscanf(
-        //     ib->buffer,
-        //     "insert %d %s %s",
-        //     &(stmt->row_to_insert.id),
-        //     stmt->row_to_insert.username,
-        //     stmt->row_to_insert.email);
+        int args_assigned = sscanf(
+            ib->buffer,
+            "insert %d %s %s",
+            &(stmt->row_to_insert.id),
+            stmt->row_to_insert.username,
+            stmt->row_to_insert.email);
 
-        // if (args_assigned < 3)
-        // {
-        //     return PARSE_SYNTAX_ERROR;
-        // }
+        if (args_assigned < 3)
+        {
+            return PARSE_SYNTAX_ERROR;
+        }
 
         return PREPARE_SUCCES;
     }
