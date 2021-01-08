@@ -65,8 +65,15 @@ typedef enum
 typedef enum
 {
     PREPARE_SUCCES,
-    PREPARE_UNRECOGNIZED_STATEMENT
+    PREPARE_UNRECOGNIZED_STATEMENT,
+    PREPARE_SYNTAX_ERROR
 } PrepareResult;
+
+typedef enum
+{
+    EXECUTE_SUCCESS,
+    EXECUTE_TABLE_FULL
+} ExecuteResult;
 
 typedef enum
 {
@@ -134,7 +141,7 @@ void deserialize_row(void *source, Row *destination)
 const uint32_t PAGE_SIZE = 4096;
 #define TABLE_MAX_PAGES 100
 const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
-const uint32_t MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
 
 typedef struct
 {
@@ -161,6 +168,11 @@ void *row_slot(Table *table, uint32_t row_num)
     return page + byte_offset;
 }
 
+void print_row(Row *row)
+{
+    printf("(%d, %s, %s)\n", row->id, row->username, row->email);
+}
+
 void print_prompt()
 {
     printf("db > ");
@@ -180,60 +192,105 @@ void close_input_buffer(InputBuffer *ib)
     free(ib);
 }
 
-MetaCommandResult do_meta_command(InputBuffer *ib)
+MetaCommandResult do_meta_command(InputBuffer *ib, Table *table)
 {
     if (strcmp(ib->buffer, ".exit") == 0)
     {
+        close_input_buffer(ib);
+        free_table(table);
         exit(EXIT_SUCCESS);
     }
     return META_COMMAND_UNRECOGNIZED_COMMAND;
 }
 
-PrepareResult prepare_statement(InputBuffer *ib, Statement *stmt)
+PrepareResult prepare_statement(InputBuffer *ib, Statement *statement)
 {
     if (strncasecmp(ib->buffer, "insert", 6) == 0)
     {
-        stmt->type = STATEMENT_INSERT;
+        statement->type = STATEMENT_INSERT;
 
         ////***To add later***
         int args_assigned = sscanf(
             ib->buffer,
             "insert %d %s %s",
-            &(stmt->row_to_insert.id),
-            stmt->row_to_insert.username,
-            stmt->row_to_insert.email);
+            &(statement->row_to_insert.id),
+            statement->row_to_insert.username,
+            statement->row_to_insert.email);
 
         if (args_assigned < 3)
         {
-            return PARSE_SYNTAX_ERROR;
+            return PREPARE_SYNTAX_ERROR;
         }
 
         return PREPARE_SUCCES;
     }
     if (strcasecmp(ib->buffer, "select") == 0)
     {
-        stmt->type = STATEMENT_SELECT;
+        statement->type = STATEMENT_SELECT;
         return PREPARE_SUCCES;
     }
 
     return PREPARE_UNRECOGNIZED_STATEMENT;
 }
 
-void execute_statement(Statement *stmt)
+ExecuteResult execute_insert(Statement *statement, Table *table)
 {
-    switch (stmt->type)
+    if (table->num_rows >= TABLE_MAX_ROWS)
+    {
+        return EXECUTE_TABLE_FULL;
+    }
+    Row *row_to_insert = &(statement->row_to_insert);
+    serialize_row(row_to_insert, row_slot(table, table->num_rows));
+    table->num_rows += 1;
+
+    return EXECUTE_SUCCESS;
+}
+
+ExecuteResult execute_select(Statement *statement, Table *table)
+{
+    Row row;
+    for (uint32_t i = 0; i < table->num_rows; ++i)
+    {
+        deserialize_row(row_slot(table, i), &row);
+        print_row(&row);
+    }
+    return EXECUTE_SUCCESS;
+}
+
+ExecuteResult execute_statement(Statement *statement, Table *table)
+{
+    switch (statement->type)
     {
     case (STATEMENT_INSERT):
-        printf("Here goes the INSERT\n");
-        break;
+        return execute_insert(statement, table);
     case (STATEMENT_SELECT):
-        printf("Here goes the SELECT\n");
-        break;
+        return execute_insert(statement, table);
     }
+}
+
+Table *new_table()
+{
+    Table *table = malloc(sizeof(Table));
+    table->num_rows = 0;
+    for (uint32_t i = 0; i < TABLE_MAX_PAGES; ++i)
+    {
+        table->pages[i] = NULL;
+    }
+    return table;
+}
+
+void free_table(Table *table)
+{
+    for (uint32_t i = 0; i < TABLE_MAX_PAGES; ++i)
+    {
+        free(table->pages[i]);
+    }
+    free(table);
 }
 
 int main(int argc, char *argv[])
 {
+    Table *table = new_table();
     InputBuffer *ib = new_input_buffer();
 
     while (true)
@@ -243,7 +300,7 @@ int main(int argc, char *argv[])
 
         if (ib->buffer[0] == '.')
         {
-            switch (do_meta_command(ib))
+            switch (do_meta_command(ib, table))
             {
             case (META_COMMAND_SUCCESS):
                 continue;
@@ -253,11 +310,14 @@ int main(int argc, char *argv[])
             }
         }
 
-        Statement stmt;
-        switch (prepare_statement(ib, &stmt))
+        Statement statement;
+        switch (prepare_statement(ib, &statement))
         {
         case (PREPARE_SUCCES):
             break;
+        case (PREPARE_SYNTAX_ERROR):
+            printf("Could not parse statement\n");
+            continue;
         case (PREPARE_UNRECOGNIZED_STATEMENT):
             if (ib->input_length > 0)
             {
@@ -266,7 +326,14 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        execute_statement(&stmt);
-        printf("Executed.\n");
+        switch (execute_statement(&statement, table))
+        {
+        case (EXECUTE_SUCCESS):
+            printf("Executed.\n");
+            break;
+        case (EXECUTE_TABLE_FULL):
+            printf("Error: Full Table\n");
+            break;
+        }
     }
 }
