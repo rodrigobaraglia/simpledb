@@ -192,17 +192,6 @@ void close_input_buffer(InputBuffer *ib)
     free(ib);
 }
 
-MetaCommandResult do_meta_command(InputBuffer *ib, Table *table)
-{
-    if (strcmp(ib->buffer, ".exit") == 0)
-    {
-        close_input_buffer(ib);
-        free_table(table);
-        exit(EXIT_SUCCESS);
-    }
-    return META_COMMAND_UNRECOGNIZED_COMMAND;
-}
-
 PrepareResult prepare_statement(InputBuffer *ib, Statement *statement)
 {
     if (strncasecmp(ib->buffer, "insert", 6) == 0)
@@ -264,7 +253,7 @@ ExecuteResult execute_statement(Statement *statement, Table *table)
     case (STATEMENT_INSERT):
         return execute_insert(statement, table);
     case (STATEMENT_SELECT):
-        return execute_insert(statement, table);
+        return execute_select(statement, table);
     }
 }
 
@@ -286,6 +275,17 @@ void free_table(Table *table)
         free(table->pages[i]);
     }
     free(table);
+}
+
+MetaCommandResult do_meta_command(InputBuffer *ib, Table *table)
+{
+    if (strcmp(ib->buffer, ".exit") == 0)
+    {
+        close_input_buffer(ib);
+        free_table(table);
+        exit(EXIT_SUCCESS);
+    }
+    return META_COMMAND_UNRECOGNIZED_COMMAND;
 }
 
 int main(int argc, char *argv[])
