@@ -9,6 +9,53 @@
 #include "getline.h"
 #endif
 
+PrepareResult prepare_insert(InputBuffer *ib, Statement *statement)
+{
+    statement->type = STATEMENT_INSERT;
+    char *keyword = strtok(ib->buffer, " ");
+    char *id_string = strtok(NULL, " ");
+    char *username = strtok(NULL, " ");
+    char *email = strtok(NULL, " ");
+
+    if (id_string == NULL || username == NULL || email == NULL)
+    {
+        return PREPARE_SYNTAX_ERROR;
+    }
+    if (strlen(username) > COLUMN_USERNAME_SIZE || strlen(email) > COLUMN_EMAIL_SIZE)
+    {
+        return PREPARE_STRING_TOO_LONG;
+    }
+    if (strlen(email) > COLUMN_EMAIL_SIZE)
+    {
+        return PREPARE_STRING_TOO_LONG;
+    }
+    int id = atoi(id_string);
+    if (id < 0)
+    {
+        return PREPARE_NEGATIVE_ID;
+    }
+    statement->row_to_insert.id = atoi(id_string);
+    strcpy(statement->row_to_insert.username, username);
+    strcpy(statement->row_to_insert.email, email);
+
+    return PREPARE_SUCCES;
+}
+
+PrepareResult prepare_statement(InputBuffer *ib, Statement *statement)
+{
+    if (strncasecmp(ib->buffer, "insert", 6) == 0)
+    {
+        return prepare_insert(ib, statement);
+    }
+    if (strcasecmp(ib->buffer, "select") == 0)
+    {
+        statement->type = STATEMENT_SELECT;
+        return PREPARE_SUCCES;
+    }
+
+    return PREPARE_UNRECOGNIZED_STATEMENT;
+}
+
 ExecuteResult execute_insert(Statement *statement, Table *table)
 {
 
@@ -54,36 +101,6 @@ MetaCommandResult do_meta_command(InputBuffer *ib, Table *table)
         exit(EXIT_SUCCESS);
     }
     return META_COMMAND_UNRECOGNIZED_COMMAND;
-}
-
-PrepareResult prepare_statement(InputBuffer *ib, Statement *statement)
-{
-    if (strncasecmp(ib->buffer, "insert", 6) == 0)
-    {
-        statement->type = STATEMENT_INSERT;
-
-        ////***To add later***
-        int args_assigned = sscanf(
-            ib->buffer,
-            "insert %d %s %s",
-            &(statement->row_to_insert.id),
-            statement->row_to_insert.username,
-            statement->row_to_insert.email);
-
-        if (args_assigned < 3)
-        {
-            return PREPARE_SYNTAX_ERROR;
-        }
-
-        return PREPARE_SUCCES;
-    }
-    if (strcasecmp(ib->buffer, "select") == 0)
-    {
-        statement->type = STATEMENT_SELECT;
-        return PREPARE_SUCCES;
-    }
-
-    return PREPARE_UNRECOGNIZED_STATEMENT;
 }
 
 void print_prompt()

@@ -20,7 +20,9 @@ typedef enum PrepareResult
 {
     PREPARE_SUCCES,
     PREPARE_UNRECOGNIZED_STATEMENT,
-    PREPARE_SYNTAX_ERROR
+    PREPARE_SYNTAX_ERROR,
+    PREPARE_STRING_TOO_LONG,
+    PREPARE_NEGATIVE_ID
 } PrepareResult;
 
 typedef enum ExecuteResult
@@ -45,6 +47,7 @@ ExecuteResult execute_insert(Statement *statement, Table *table);
 ExecuteResult execute_select(Statement *statement, Table *table);
 ExecuteResult execute_statement(Statement *statement, Table *table);
 MetaCommandResult do_meta_command(InputBuffer *ib, Table *table);
+PrepareResult prepare_insert(InputBuffer *ib, Statement *statement);
 PrepareResult prepare_statement(InputBuffer *ib, Statement *statement);
 void print_prompt();
 void read_input(InputBuffer *ib);
