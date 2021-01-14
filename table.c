@@ -32,7 +32,7 @@ void *row_slot(Table *table, uint32_t row_num)
     return page + byte_offset;
 }
 
-Table *pager_open(const char *filename)
+Pager *pager_open(const char *filename)
 {
     int fd = open(filename, O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
 
