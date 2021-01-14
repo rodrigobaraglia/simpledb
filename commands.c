@@ -97,7 +97,7 @@ MetaCommandResult do_meta_command(InputBuffer *ib, Table *table)
     if (strcmp(ib->buffer, ".exit") == 0)
     {
         close_input_buffer(ib);
-        free_table(table);
+        db_close(table);
         exit(EXIT_SUCCESS);
     }
     return META_COMMAND_UNRECOGNIZED_COMMAND;

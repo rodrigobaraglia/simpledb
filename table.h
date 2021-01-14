@@ -1,6 +1,7 @@
 #ifndef _TABLE_H_
 #define _TABLE_H_
 #include <stdint.h>
+#include "constants.h"
 
 #define COLUMN_USERNAME_SIZE 32
 #define COLUMN_EMAIL_SIZE 255
@@ -13,16 +14,25 @@ typedef struct Row
     char email[COLUMN_EMAIL_SIZE + 1];
 } Row;
 
+typedef struct Pager
+{
+    int file_descriptor;
+    uint32_t file_length;
+    void *pages[TABLE_MAX_PAGES];
+} Pager;
+
 typedef struct Table
 {
     uint32_t num_rows;
-    void *pages[TABLE_MAX_PAGES];
+    Pager *pager;
 } Table;
 
 void serialize_row(Row *source, void *destination);
 void deserialize_row(void *source, Row *destination);
 void *row_slot(Table *table, uint32_t row_num);
-Table *new_table();
+void *get_page(Pager *pager, uint32_t page_num);
+Table *db_open(const char *filename);
+void db_close(Table *table);
 void free_table(Table *table);
 void print_row(Row *row);
 
