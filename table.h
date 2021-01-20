@@ -8,6 +8,12 @@
 #define COLUMN_EMAIL_SIZE 255
 #define TABLE_MAX_PAGES 100
 
+typedef enum
+{
+    NODE_INTERNAL,
+    NODE_LEAF
+} NodeType;
+
 typedef struct Row
 {
     uint32_t id;
@@ -19,13 +25,14 @@ typedef struct Pager
 {
     int file_descriptor;
     uint32_t file_length;
+    uint32_t num_pages;
     void *pages[TABLE_MAX_PAGES];
 } Pager;
 
 typedef struct Table
 {
-    uint32_t num_rows;
     Pager *pager;
+    uint32_t root_page_num;
 } Table;
 
 typedef struct Cursor
