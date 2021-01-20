@@ -1,2 +1,2 @@
 # litersqlite
-database implementation in C following https://cstack.github.io/ 
+Simple relational database implementation in C following https://cstack.github.io/ 
